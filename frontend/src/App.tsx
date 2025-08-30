@@ -1,3 +1,47 @@
+// Mini glossário de siglas e métricas
+const glossary: { [key: string]: string } = {
+  'POS': 'Part-of-Speech (Classe gramatical da palavra, ex: substantivo, verbo, adjetivo, etc.)',
+  'lemma': 'Forma canônica da palavra (ex: "correr" para "correndo")',
+  'dep': 'Relação sintática (dependência) entre palavras na frase',
+  'tag': 'Etiqueta gramatical detalhada atribuída pelo modelo',
+  'polarity': 'Polaridade do sentimento: -1 (negativo) a 1 (positivo)',
+  'subjectivity': 'Grau de subjetividade: 0 (objetivo) a 1 (subjetivo)',
+  'num_words': 'Número total de palavras no texto',
+  'num_sentences': 'Número total de frases',
+  'mean_word_length': 'Comprimento médio das palavras',
+  'median_word_length': 'Comprimento mediano das palavras',
+  'mean_sentence_length': 'Comprimento médio das frases (em palavras)',
+  'median_sentence_length': 'Comprimento mediano das frases (em palavras)',
+  'word_length_variance': 'Variação do comprimento das palavras',
+  'sentence_length_variance': 'Variação do comprimento das frases',
+  'flesch_reading_ease': 'Índice de facilidade de leitura Flesch (quanto maior, mais fácil)',
+  'gunning_fog': 'Índice Gunning Fog (estimativa de anos de escolaridade necessários)',
+  'smog_index': 'Índice SMOG (estimativa de anos de escolaridade necessários)',
+  'automated_readability_index': 'Índice de legibilidade automatizado',
+  'bigrams': 'Pares de palavras que aparecem juntas com mais frequência',
+  'trigrams': 'Sequências de três palavras mais frequentes',
+};
+
+function Glossary() {
+  const [show, setShow] = React.useState(false);
+  return (
+    <div style={{margin:'24px auto 0', maxWidth:700, textAlign:'left'}}>
+      <button onClick={()=>setShow(!show)} style={{background:'#00eaff', color:'#222', border:'none', borderRadius:8, padding:'8px 18px', fontWeight:700, cursor:'pointer', marginBottom:8}}>
+        {show ? 'Ocultar glossário' : 'Mostrar glossário de termos'}
+      </button>
+      {show && (
+        <div style={{background:'#222', color:'#fff', borderRadius:10, padding:18, boxShadow:'0 2px 8px #00eaff44', fontSize:16}}>
+          <b>Glossário de termos e métricas:</b>
+          <ul style={{marginTop:10, marginBottom:0, paddingLeft:22}}>
+            {Object.entries(glossary).map(([sigla, desc]) => (
+              <li key={sigla} style={{marginBottom:6}}><b>{sigla}:</b> {desc}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 import React, { useState } from 'react';
 
@@ -92,6 +136,20 @@ const styles = {
 };
 
 function App() {
+      // Visualização especial para resultados de R
+      function RAnalysisView({ r }: { r: any }) {
+        if (!r || Object.keys(r).length === 0) return null;
+        return (
+          <div style={{margin:'18px 0', background:'#222', borderRadius:10, padding:16, boxShadow:'0 2px 8px #00eaff44'}}>
+            <b style={{color:'#00eaff'}}>Resultados de análise via R:</b>
+            <ul style={{marginTop:10, marginBottom:0, paddingLeft:22}}>
+              {Object.entries(r).map(([k,v]) => (
+                <li key={k}><b>{k}:</b> {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')}</li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
   const [message, setMessage] = useState('');
   const [text, setText] = useState('');
   const [result, setResult] = useState<any>(null);
@@ -120,6 +178,7 @@ function App() {
       <div style={styles.grammExp}>
         <b>GrammAIr®</b> é uma plataforma híbrida de análise gramatical que une linguística de corpus, inteligência artificial e ciência de dados. Projetada para integração com a linguagem R e acessível via API RESTful, a ferramenta oferece insights linguísticos robustos por meio de analytics descritivo, preditivo e prescritivo. Voltada a pesquisadores, educadores, desenvolvedores e empresas EdTech, a GrammAIr automatiza a compreensão e a correção da linguagem com base em evidência empírica e aprendizado de máquina.
       </div>
+      <Glossary />
       <p style={styles.sub}>Backend diz: {message}</p>
       <form onSubmit={handleSubmit} style={styles.form}>
         <textarea
@@ -135,11 +194,103 @@ function App() {
       {result && (
         <div style={styles.result}>
           <h3 style={{color:'#e5e5e5', textShadow:'0 2px 8px #ff4400, 0 0px 2px #00eaff'}}>Resultado da análise</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
+          {/* Estatísticas descritivas */}
+          {result.stats && (
+            <div style={{marginBottom:18}}>
+              <b>Estatísticas do texto:</b>
+              <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
+                {Object.entries(result.stats).map(([k,v]) => (
+                  <li key={k}><b>{k}:</b> {v}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Legibilidade */}
+          {result.readability && (
+            <div style={{marginBottom:18}}>
+              <b>Índices de legibilidade:</b>
+              <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
+                {Object.entries(result.readability).map(([k,v]) => (
+                  <li key={k}><b>{k}:</b> {v}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Histogramas */}
+          {result.histogram_base64 && (
+            <div style={{margin:'18px 0', textAlign:'center'}}>
+              <b>Histograma do comprimento das frases:</b><br/>
+              <img src={`data:image/png;base64,${result.histogram_base64}`} alt="Histograma" style={{maxWidth:'100%', borderRadius:10, marginTop:8}} />
+            </div>
+          )}
+          {/* Coocorrência (bigrams) */}
+          {result.bigrams && result.bigrams.length > 0 && (
+            <div style={{marginBottom:18}}>
+              <b>Pares de palavras mais frequentes (bigrams):</b>
+              <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
+                {result.bigrams.map((b:any, i:number) => (
+                  <li key={i}><b>{b.pair}</b> — {b.count} ocorrências</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* N-gramas (trigramas) */}
+          {result.trigrams && result.trigrams.length > 0 && (
+            <div style={{marginBottom:18}}>
+              <b>Trigramas mais frequentes:</b>
+              <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
+                {result.trigrams.map((t:any, i:number) => (
+                  <li key={i}><b>{t.trigram}</b> — {t.count} ocorrências</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Sentimento */}
+          {result.sentiment && (
+            <div style={{marginBottom:18}}>
+              <b>Análise de sentimento:</b>
+              <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
+                <li><b>Polarity:</b> {result.sentiment.polarity}</li>
+                <li><b>Subjectivity:</b> {result.sentiment.subjectivity}</li>
+              </ul>
+            </div>
+          )}
+          {/* Resultados de análise via R */}
+          {result.r_analysis && <RAnalysisView r={result.r_analysis} />}
+          {/* Tokens (POS tags, lemma, etc.) */}
+          {result.tokens && result.tokens.length > 0 && (
+            <div style={{marginBottom:18}}>
+              <b>Tokens e classes gramaticais:</b>
+              <div style={{overflowX:'auto', marginTop:8}}>
+                <table style={{borderCollapse:'collapse', width:'100%', background:'#181818', color:'#fff', fontSize:15}}>
+                  <thead>
+                    <tr style={{background:'#00eaff22'}}>
+                      <th style={{padding:'4px 10px', border:'1px solid #00eaff'}}>Palavra</th>
+                      <th style={{padding:'4px 10px', border:'1px solid #00eaff'}}>Lemma</th>
+                      <th style={{padding:'4px 10px', border:'1px solid #00eaff'}}>POS</th>
+                      <th style={{padding:'4px 10px', border:'1px solid #00eaff'}}>Tag</th>
+                      <th style={{padding:'4px 10px', border:'1px solid #00eaff'}}>Dep</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.tokens.map((tok:any, i:number) => (
+                      <tr key={i}>
+                        <td style={{padding:'4px 10px', border:'1px solid #00eaff'}}>{tok.text}</td>
+                        <td style={{padding:'4px 10px', border:'1px solid #00eaff'}}>{tok.lemma}</td>
+                        <td style={{padding:'4px 10px', border:'1px solid #00eaff'}}>{tok.pos}</td>
+                        <td style={{padding:'4px 10px', border:'1px solid #00eaff'}}>{tok.tag}</td>
+                        <td style={{padding:'4px 10px', border:'1px solid #00eaff'}}>{tok.dep}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
       <footer style={styles.footer}>
-        powered by Hubstry 20025 | Guilherme Gonçalves Machado
+        powered by Hubstry 2025 | Guilherme Gonçalves Machado
       </footer>
     </div>
   );
