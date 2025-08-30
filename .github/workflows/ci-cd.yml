@@ -25,10 +25,19 @@ jobs:
         run: docker run -d -p 8000:8000 --name backend grammair-backend
       - name: Run frontend container
         run: docker run -d -p 5173:5173 --name frontend --link backend grammair-frontend
-      - name: Test backend health
+      - name: Wait for backend to be ready
         run: |
-          sleep 5
-          curl --fail http://localhost:8000/ || exit 1
+          for i in {1..10}; do
+            if curl --fail http://localhost:8000/; then
+              echo "Backend is up!"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 3
+          done
+          echo "Backend did not start in time."
+          docker logs backend
+          exit 1
       - name: Test frontend health
         run: |
           sleep 5
