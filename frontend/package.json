@@ -1,0 +1,13 @@
+{
+  "name": "grammair-flow-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "start": "echo 'Use create-react-app or Vite to bootstrap'"
+  }
+}
