@@ -1,5 +1,5 @@
 
-# GrammAIr® Flow
+# GrammAIr Flow
 
 GrammAIr® Flow é uma plataforma híbrida de análise gramatical, projetada para unir linguística de corpus, inteligência artificial e ciência de dados em um ambiente web moderno. O projeto nasce da necessidade de automatizar e aprofundar a compreensão da linguagem natural, oferecendo recursos avançados para pesquisadores, educadores, desenvolvedores e empresas EdTech.
 
