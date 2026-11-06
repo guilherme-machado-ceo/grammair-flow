@@ -20,6 +20,9 @@ aws ecr describe-repositories --repository-names "$ECR_REPO" --region "$REGION" 
 aws ecr put-lifecycle-policy --repository-name "$ECR_REPO" --region "$REGION" --lifecycle-policy-text \
   '{"rules":[{"rulePriority":1,"description":"manter 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}' >/dev/null
 
+# Permite que o serviço Lambda leia as imagens deste repositório.
+aws ecr set-repository-policy --repository-name "$ECR_REPO" --region "$REGION" --policy-text "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"LambdaECRImageRetrievalPolicy\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Condition\":{\"StringLike\":{\"aws:sourceArn\":\"arn:aws:lambda:${REGION}:${ACCOUNT}:function:*\"}}}]}" >/dev/null
+
 # 2. Papel de execução da função Lambda (só logs no CloudWatch).
 aws iam get-role --role-name "$LAMBDA_ROLE" >/dev/null 2>&1 || {
   aws iam create-role --role-name "$LAMBDA_ROLE" --assume-role-policy-document \

@@ -23,12 +23,12 @@ env:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
       - name: Construir a imagem
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
@@ -66,19 +66,19 @@ jobs:
   deploy:
     needs: build-test
     if: github.event_name != 'pull_request' && vars.AWS_ROLE_ARN != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency: deploy-aws
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Construir e enviar a imagem ao ECR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
