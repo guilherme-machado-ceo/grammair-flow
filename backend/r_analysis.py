@@ -10,7 +10,7 @@ try:
     from rpy2.robjects.packages import importr
     from rpy2.robjects import StrVector
     R_AVAILABLE = True
-except ImportError:
+except Exception:  # ImportError ou falha ao carregar a biblioteca do R
     R_AVAILABLE = False
     robjects = None
     importr = None

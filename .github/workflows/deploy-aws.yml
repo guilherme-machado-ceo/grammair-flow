@@ -1,0 +1,125 @@
+name: Deploy na AWS (Lambda)
+
+# Pull request: só constrói a imagem e testa o container.
+# Push na main (ou disparo manual): constrói, envia ao Amazon ECR e atualiza a função Lambda.
+# O deploy só roda quando a variável AWS_ROLE_ARN existe no repositório.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPO: grammair-flow
+  FUNCTION_NAME: grammair-flow
+  LAMBDA_ROLE_NAME: grammair-flow-lambda
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Construir a imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: grammair-flow:test
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Testar o container
+        run: |
+          docker run -d -p 8000:8000 --name gf grammair-flow:test
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:8000/health
+          curl -sf http://localhost:8000/ | grep -qi '<html'
+          curl -sf -X POST http://localhost:8000/analyze \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"O gato subiu no telhado. Depois ele dormiu ao sol da tarde."}' > out.json
+          python3 - <<'EOF'
+          import json
+          d = json.load(open("out.json"))
+          assert "error" not in d, d.get("error")
+          assert d["tokens"], "sem tokens"
+          r = d["r_analysis"]
+          print(json.dumps(r, ensure_ascii=False)[:600])
+          assert "flesch_readability_r" in r["readability_r"], r["readability_r"]
+          print("OK: spaCy, textstat e R funcionando")
+          EOF
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker logs gf || true
+
+  deploy:
+    needs: build-test
+    if: github.event_name != 'pull_request' && vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    concurrency: deploy-aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Construir e enviar a imagem ao ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+          provenance: false
+          cache-from: type=gha
+      - name: Criar ou atualizar a função Lambda
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          ROLE_ARN="arn:aws:iam::${ACCOUNT}:role/${LAMBDA_ROLE_NAME}"
+          if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+            aws lambda update-function-code --function-name "$FUNCTION_NAME" --image-uri "$IMAGE" >/dev/null
+          else
+            aws lambda create-function --function-name "$FUNCTION_NAME" \
+              --package-type Image --code ImageUri="$IMAGE" --role "$ROLE_ARN" \
+              --architectures x86_64 --memory-size 3008 --timeout 60 \
+              --ephemeral-storage Size=1024 >/dev/null
+          fi
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+          # Teto de execuções simultâneas, para conter custo. Contas novas podem não permitir.
+          aws lambda put-function-concurrency --function-name "$FUNCTION_NAME" \
+            --reserved-concurrent-executions 2 >/dev/null 2>&1 || echo "Aviso: limite de concorrência não aplicado."
+      - name: Publicar o endereço público (Function URL)
+        run: |
+          set -euo pipefail
+          if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+            aws lambda create-function-url-config --function-name "$FUNCTION_NAME" --auth-type NONE >/dev/null
+            aws lambda add-permission --function-name "$FUNCTION_NAME" --statement-id public-url \
+              --action lambda:InvokeFunctionUrl --principal '*' --function-url-auth-type NONE >/dev/null
+            aws lambda add-permission --function-name "$FUNCTION_NAME" --statement-id public-url-invoke \
+              --action lambda:InvokeFunction --principal '*' --invoked-via-function-url >/dev/null \
+              || echo "Aviso: segunda permissão não aplicada (versão da CLI)."
+          fi
+          URL=$(aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --query FunctionUrl --output text)
+          echo "Endereço: $URL"
+          echo "### GrammAIr Flow no ar: $URL" >> "$GITHUB_STEP_SUMMARY"
+          for i in $(seq 1 10); do
+            curl -sf "${URL}health" && break
+            sleep 6
+          done
