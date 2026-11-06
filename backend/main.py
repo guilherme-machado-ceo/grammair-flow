@@ -1,7 +1,12 @@
+import os
+
+import matplotlib
+matplotlib.use("Agg")
+
 from r_analysis import r_stats, r_histogram, r_readability, r_cooccurrence
 
-
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import spacy
@@ -38,9 +43,19 @@ except Exception as e:
     logger.error(f"Erro ao carregar spaCy: {e}")
     nlp = None
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello from grammair-flow backend!"}
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+@app.get("/health")
+def health():
+    return {"message": "Hello from grammair-flow backend!", "spacy": nlp is not None}
+
+
+if not os.path.isdir(STATIC_DIR):
+    # Desenvolvimento local: sem interface compilada, a raiz responde como antes.
+    @app.get("/")
+    def read_root():
+        return {"message": "Hello from grammair-flow backend!"}
 
 class AnalyzeRequest(BaseModel):
     text: str
@@ -159,3 +174,9 @@ def analyze_text(req: AnalyzeRequest):
     except Exception as e:
         logger.error(f"Erro na análise: {e}")
         return {"error": str(e)}
+
+
+# Na imagem do Lambda, a interface compilada é servida na raiz.
+# A montagem fica no fim para não encobrir as rotas da API.
+if os.path.isdir(STATIC_DIR):
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

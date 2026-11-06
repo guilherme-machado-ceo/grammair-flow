@@ -43,7 +43,11 @@ function Glossary() {
   );
 }
 
+
 import React, { useState } from 'react';
+
+// Em produção a API fica no mesmo endereço da interface (base vazia).
+const API_BASE: string = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 
 const styles = {
   main: {
@@ -155,7 +159,7 @@ function App() {
   const [result, setResult] = useState<any>(null);
 
   React.useEffect(() => {
-    fetch('http://localhost:8000/')
+    fetch(`${API_BASE}/health`)
       .then(res => res.json())
       .then(data => setMessage(data.message));
   }, []);
@@ -163,7 +167,7 @@ function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);
-    const res = await fetch('http://localhost:8000/analyze', {
+    const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -200,7 +204,7 @@ function App() {
               <b>Estatísticas do texto:</b>
               <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
                 {Object.entries(result.stats).map(([k,v]) => (
-                  <li key={k}><b>{k}:</b> {v}</li>
+                  <li key={k}><b>{k}:</b> {String(v)}</li>
                 ))}
               </ul>
             </div>
@@ -211,7 +215,7 @@ function App() {
               <b>Índices de legibilidade:</b>
               <ul style={{marginTop:6, marginBottom:0, paddingLeft:22}}>
                 {Object.entries(result.readability).map(([k,v]) => (
-                  <li key={k}><b>{k}:</b> {v}</li>
+                  <li key={k}><b>{k}:</b> {String(v)}</li>
                 ))}
               </ul>
             </div>
