@@ -9,4 +9,4 @@ matplotlib
 seaborn
 textstat
 nltk
-rpy2
+rpy2>=3.5,<3.6  # 3.6+ exige R mais novo que o 4.2 do Debian 12
